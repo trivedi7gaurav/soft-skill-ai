@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Soft Skills AI</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --accent: #6c8cff;
+    --accent-dark: #4a63cc;
+    --text: #eef0f5;
+    --muted: #9aa1b1;
+    --bubble-user: #2a3550;
+    --bubble-assistant: #1f2430;
+    --border: #262b36;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 14px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 17px; margin: 0; }
+  header .user-tag { font-size: 12px; color: var(--muted); }
+
+  #login-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    gap: 14px;
+  }
+  #login-screen h2 { margin: 0 0 4px 0; }
+  #login-screen p { color: var(--muted); margin: 0 0 12px 0; text-align: center; font-size: 14px; }
+  input, select, button, textarea {
+    font-size: 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+    background: var(--panel);
+    color: var(--text);
+    width: 100%;
+    max-width: 320px;
+  }
+  button {
+    background: var(--accent);
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:active { background: var(--accent-dark); }
+  button.secondary {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  #app-screen { display: none; flex: 1; flex-direction: column; min-height: 0; }
+
+  nav#tabs {
+    display: flex;
+    overflow-x: auto;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  nav#tabs button {
+    flex: 1;
+    background: transparent;
+    color: var(--muted);
+    border-radius: 0;
+    padding: 12px 8px;
+    font-size: 13px;
+    white-space: nowrap;
+    max-width: none;
+  }
+  nav#tabs button.active {
+    color: var(--text);
+    border-bottom: 2px solid var(--accent);
+  }
+
+  #chat-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .msg {
+    max-width: 82%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 14.5px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+  }
+  .msg.user { align-self: flex-end; background: var(--bubble-user); border-bottom-right-radius: 4px; }
+  .msg.assistant { align-self: flex-start; background: var(--bubble-assistant); border-bottom-left-radius: 4px; }
+  .msg .agent-label { display:block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+
+  #composer {
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+  }
+  #composer textarea {
+    flex: 1;
+    max-width: none;
+    resize: none;
+    height: 44px;
+    padding: 10px 12px;
+  }
+  #composer button { max-width: 80px; }
+
+  #panel-view { flex: 1; overflow-y: auto; padding: 16px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .card h3 { margin: 0 0 8px 0; font-size: 15px; }
+  .score-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .score-row:last-child { border-bottom: none; }
+  .score-bar-bg { background: #222836; border-radius: 6px; height: 6px; margin-top: 4px; overflow: hidden; }
+  .score-bar-fill { background: var(--accent); height: 100%; }
+  .plan-day { margin-bottom: 10px; padding-left: 10px; border-left: 2px solid var(--accent); }
+  .plan-day b { font-size: 13.5px; }
+  .plan-day .goal { color: var(--muted); font-size: 13px; }
+  .muted-note { color: var(--muted); font-size: 13px; text-align: center; padding: 20px; }
+  .loading { color: var(--muted); font-size: 13px; padding: 8px 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Soft Skills AI</h1>
+  <span class="user-tag" id="user-tag"></span>
+</header>
+
+<div id="login-screen">
+  <h2>Welcome</h2>
+  <p>Enter your name to start or continue your coaching journey.<br>Use the same name each time to keep your history and progress.</p>
+  <input id="login-name" placeholder="Your name" autocomplete="name">
+  <select id="login-domain">
+    <option value="general">General</option>
+    <option value="corporate">Corporate</option>
+    <option value="school">School / College</option>
+    <option value="ngo">NGO</option>
+  </select>
+  <button onclick="login()">Continue</button>
+  <p id="login-error" style="color:#ff8080;"></p>
+</div>
+
+<div id="app-screen">
+  <nav id="tabs">
+    <button class="tab-btn active" data-tab="coach" onclick="switchTab('coach')">Coach</button>
+    <button class="tab-btn" data-tab="interview" onclick="switchTab('interview')">Interview</button>
+    <button class="tab-btn" data-tab="assessment" onclick="switchTab('assessment')">Assessment</button>
+    <button class="tab-btn" data-tab="plan" onclick="switchTab('plan')">Learning Plan</button>
+  </nav>
+
+  <div id="chat-log"></div>
+
+  <div id="panel-view" style="display:none;"></div>
+
+  <div id="composer">
+    <textarea id="composer-input" placeholder="Type a message..." onkeydown="handleComposerKey(event)"></textarea>
+    <button onclick="sendMessage()">Send</button>
+  </div>
+</div>
+
+<script>
+const API = "";
+let state = {
+  userId: null,
+  name: null,
+  currentTab: "coach",
+  history: {}, // agent -> [ {role, content, agent} ]
+};
+
+async function login() {
+  const name = document.getElementById("login-name").value.trim();
+  const domain = document.getElementById("login-domain").value;
+  if (!name) { document.getElementById("login-error").innerText = "Please enter your name."; return; }
+
+  try {
+    const res = await fetch(`${API}/api/login`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({name, domain})
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+
+    state.userId = data.user_id;
+    state.name = name;
+
+    // Bucket history by agent for the tabbed chat views
+    state.history = {coach: [], interview: [], assessment: []};
+    for (const m of data.history) {
+      if (state.history[m.agent]) state.history[m.agent].push(m);
+    }
+    state.assessments = data.assessments || [];
+    state.learningPlan = data.learning_plan;
+
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app-screen").style.display = "flex";
+    document.getElementById("user-tag").innerText = name;
+
+    switchTab("coach");
+  } catch (e) {
+    document.getElementById("login-error").innerText = "Could not log in: " + e.message;
+  }
+}
+
+function switchTab(tab) {
+  state.currentTab = tab;
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+
+  const chatLog = document.getElementById("chat-log");
+  const panelView = document.getElementById("panel-view");
+  const composer = document.getElementById("composer");
+
+  if (tab === "assessment" || tab === "plan") {
+    chatLog.style.display = "none";
+    composer.style.display = (tab === "assessment") ? "flex" : "none";
+    panelView.style.display = "block";
+    if (tab === "assessment") renderAssessmentPanel();
+    if (tab === "plan") renderPlanPanel();
+  } else {
+    chatLog.style.display = "flex";
+    panelView.style.display = "none";
+    composer.style.display = "flex";
+    renderChatMessages();
+  }
+}
+
+function renderChatMessages() {
+  const chatLog = document.getElementById("chat-log");
+  chatLog.innerHTML = "";
+  const msgs = state.history[state.currentTab] || [];
+  if (msgs.length === 0) {
+    chatLog.innerHTML = `<div class="muted-note">No messages yet. Say hello to get started.</div>`;
+    return;
+  }
+  for (const m of msgs) {
+    appendBubble(m.role, m.content, false);
+  }
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function appendBubble(role, content, scroll = true) {
+  const chatLog = document.getElementById("chat-log");
+  const div = document.createElement("div");
+  div.className = "msg " + (role === "user" ? "user" : "assistant");
+  div.innerText = content;
+  chatLog.appendChild(div);
+  if (scroll) chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function handleComposerKey(e) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+async function sendMessage() {
+  const input = document.getElementById("composer-input");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+
+  const agentKey = state.currentTab === "assessment" ? "assessment" :
+                   state.currentTab === "interview" ? "interview" : "coach";
+
+  if (!state.history[agentKey]) state.history[agentKey] = [];
+  state.history[agentKey].push({role: "user", content: text, agent: agentKey});
+  if (state.currentTab !== "plan") renderChatMessages();
+
+  const chatLog = document.getElementById("chat-log");
+  const loadingEl = document.createElement("div");
+  loadingEl.className = "loading";
+  loadingEl.innerText = "Thinking...";
+  chatLog.appendChild(loadingEl);
+  chatLog.scrollTop = chatLog.scrollHeight;
+
+  try {
+    const res = await fetch(`${API}/api/chat`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({user_id: state.userId, agent: agentKey, message: text})
+    });
+    loadingEl.remove();
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    state.history[agentKey].push({role: "assistant", content: data.reply, agent: agentKey});
+    renderChatMessages();
+  } catch (e) {
+    loadingEl.remove();
+    appendBubble("assistant", "Error: " + e.message);
+  }
+}
+
+function renderAssessmentPanel() {
+  const panel = document.getElementById("panel-view");
+  let scoresHtml = "";
+  if (state.assessments && state.assessments.length > 0) {
+    scoresHtml = state.assessments.map(a => `
+      <div class="score-row">
+        <span>${a.skill.replace(/_/g, " ")}</span>
+        <span>${a.score}/10</span>
+      </div>
+      <div class="score-bar-bg"><div class="score-bar-fill" style="width:${a.score * 10}%"></div></div>
+    `).join("");
+  } else {
+    scoresHtml = `<div class="muted-note">No scores yet. Chat below about a recent situation, then tap "Score me now".</div>`;
+  }
+
+  panel.innerHTML = `
+    <div class="card">
+      <h3>Your latest skill scores</h3>
+      ${scoresHtml}
+    </div>
+    <button onclick="runScoring()">Score me now</button>
+    <div id="assessment-chat-log" style="margin-top:14px;"></div>
+  `;
+
+  const chatArea = document.getElementById("assessment-chat-log");
+  const msgs = state.history["assessment"] || [];
+  for (const m of msgs) {
+    const div = document.createElement("div");
+    div.className = "msg " + (m.role === "user" ? "user" : "assistant");
+    div.style.marginBottom = "8px";
+    div.innerText = m.content;
+    chatArea.appendChild(div);
+  }
+}
+
+async function runScoring() {
+  try {
+    const res = await fetch(`${API}/api/assessment/score`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({user_id: state.userId})
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    state.assessments = Object.entries(data.scores).map(([skill, score]) => ({
+      skill, score, notes: data.notes[skill] || ""
+    }));
+    renderAssessmentPanel();
+  } catch (e) {
+    alert("Could not generate scores: " + e.message);
+  }
+}
+
+function renderPlanPanel() {
+  const panel = document.getElementById("panel-view");
+  if (state.learningPlan) {
+    const p = state.learningPlan;
+    panel.innerHTML = `
+      <div class="card">
+        <h3>Focus: ${(p.focus_skills || []).join(", ")}</h3>
+        <p>${p.summary || ""}</p>
+      </div>
+      ${(p.days || []).map(d => `
+        <div class="plan-day">
+          <b>Day ${d.day} — ${d.focus}</b><br>
+          ${d.activity}<br>
+          <span class="goal">Goal: ${d.goal}</span>
+        </div>
+      `).join("")}
+      <button onclick="generatePlan()">Regenerate plan</button>
+    `;
+  } else {
+    panel.innerHTML = `
+      <div class="muted-note">No learning plan yet. Run a Skill Assessment first, then generate a plan here.</div>
+      <button onclick="generatePlan()">Generate learning plan</button>
+    `;
+  }
+}
+
+async function generatePlan() {
+  try {
+    const res = await fetch(`${API}/api/learning-plan`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({user_id: state.userId})
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    state.learningPlan = data.plan;
+    renderPlanPanel();
+  } catch (e) {
+    alert("Could not generate plan: " + e.message);
+  }
+}
+</script>
+
+</body>
+</html>
